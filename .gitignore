@@ -1,0 +1,8 @@
+# Class related
+*.pdf
+*.docx
+
+# Java related
+*.jar
+
+*/target/
