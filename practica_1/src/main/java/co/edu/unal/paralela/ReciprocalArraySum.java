@@ -1,6 +1,11 @@
 package co.edu.unal.paralela;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.Future;
 import java.util.concurrent.RecursiveAction;
 
 /**
@@ -133,7 +138,7 @@ public final class ReciprocalArraySum {
         }
 
         @Override
-        protected void compute() {   
+        protected void compute() {
             for (int i = this.startIndexInclusive; i < this.endIndexExclusive; i++) {
                 value += 1 / this.input[i];
             }
@@ -183,17 +188,23 @@ public final class ReciprocalArraySum {
     {
         double sum = 0;
 
-        ForkJoinPool pool = new ForkJoinPool();
+        List<ReciprocalArraySumTask> taskList = new ArrayList<ReciprocalArraySumTask>();
 
         for (int i = 0; i < numTasks; i++) {
-            int startChunk;
-            int endChunk;
-
-
-            ReciprocalArraySumTask newTask = new ReciprocalArraySumTask();
+            int startChunk = getChunkStartInclusive(i, numTasks, input.length);
+            int endChunk = getChunkEndExclusive(i, numTasks, input.length);
+            
+            ReciprocalArraySumTask newTask = new ReciprocalArraySumTask(startChunk, endChunk, input);
+            
+            newTask.fork();
+            taskList.add(newTask);
         }
 
-        System.out.println(numTasks);
+        for (ReciprocalArraySumTask task : taskList) {
+            task.join();
+
+            sum += task.getValue();
+        }
 
         return sum;
     }

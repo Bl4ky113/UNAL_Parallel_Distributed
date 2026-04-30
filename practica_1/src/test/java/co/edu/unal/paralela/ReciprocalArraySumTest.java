@@ -98,8 +98,25 @@ public class ReciprocalArraySumTest extends TestCase {
         }
         final long parEndTime = System.currentTimeMillis();
 
+        System.out.printf("\t");
+        System.out.println(ntasks);
+
+        System.out.printf("\t");
+        System.out.println(parStartTime);
+        System.out.printf("\t");
+        System.out.println(parEndTime);
+        System.out.printf("\t");
+        System.out.println(parEndTime - parStartTime);
+        System.out.printf("\t");
+        System.out.println((parEndTime - parStartTime) / REPEATS);
+
         final long seqTime = (seqEndTime - seqStartTime) / REPEATS;
         final long parTime = (parEndTime - parStartTime) / REPEATS;
+
+        System.out.println(seqTime);
+        System.out.println(parTime);
+        System.out.println((long)seqTime / (long)parTime);
+        System.out.println("");
 
         return (double)seqTime / (double)parTime;
     }
