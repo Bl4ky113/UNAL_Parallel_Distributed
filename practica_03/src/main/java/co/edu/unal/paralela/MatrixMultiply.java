@@ -50,7 +50,7 @@ public final class MatrixMultiply {
      * @param C Matriz de salida
      * @param N amaño de las matrices de entrada
      */
-    public static void parMatrixMultiply(
+    public static void parFastAccessMatrixMultiply(
             final double[][] A, 
             final double[][] B,
             final double[][] C, 
@@ -76,6 +76,42 @@ public final class MatrixMultiply {
         });
     }
 
+    /**
+     * Realiza una multiplicación de matrices bidimensionales (A x B = C) de forma paralela.
+     *
+     * @param A Una matriz de entrada con dimensiones NxN
+     * @param B Una matriz de entrada con dimensiones NxN
+     * @param C Matriz de salida
+     * @param N amaño de las matrices de entrada
+     */
+    public static void parForAllChunkedMatrixMultiply(
+            final double[][] A,
+            final double[][] B,
+            final double[][] C,
+            final int N)
+    {
+        final int numCores = Runtime.getRuntime().availableProcessors();
+        final int chunkSize = Math.max(1, N / (numCores * 4));
+
+        forallChunked(0, N - 1, (i) -> {
+            for (int j = 0; j < N; j++) {
+                C[i][j] = 0.0;
+                
+                for (int k = 0; k < N; k++) {
+                    C[i][j] += A[i][k] * B[k][j];
+                }
+            }
+        });
+    }
+
+    /**
+     * Realiza una multiplicación de matrices bidimensionales (A x B = C) de forma paralela.
+     *
+     * @param A Una matriz de entrada con dimensiones NxN
+     * @param B Una matriz de entrada con dimensiones NxN
+     * @param C Matriz de salida
+     * @param N amaño de las matrices de entrada
+     */
     public static void parDoubleForAllMatrixMultiply(
             final double[][] A, 
             final double[][] B,
@@ -92,7 +128,11 @@ public final class MatrixMultiply {
             });
         });
     }
-
+    
+    /**
+     * Clase de RecursiveTask para realizar la multiplicación de matrices con orden de una potencia de 2, 
+     * usando el algoritmo de Strassen.
+     */
     private static class StrassenMatrixMultiplication extends RecursiveTask<double[][]> {
         private final double[][] A;
         private final double[][] B;
@@ -108,7 +148,12 @@ public final class MatrixMultiply {
             N = setN;
         }
 
-        protected void splitMatrix (final double[][] M, final double[][] C, final int orderM, final int iStart, final int jStart)
+        protected void splitMatrix (
+                final double[][] M, 
+                final double[][] C, 
+                final int orderM, 
+                final int iStart, 
+                final int jStart)
         {
             int iM, iC, jM, jC;
             for (iM = 0, iC = iStart; iM < orderM; iM++, iC++) {
@@ -118,7 +163,13 @@ public final class MatrixMultiply {
             }
         }    
 
-        public static void joinMatrix (final double[][] M, final double[][] C, final int orderC, final int iStart, final int jStart) {
+        public static void joinMatrix (
+                final double[][] M, 
+                final double[][] C, 
+                final int orderC, 
+                final int iStart, 
+                final int jStart) 
+        {
             int iM, iC, jM, jC;
 
             for (iC = 0, iM = iStart; iC < orderC; iM++, iC++) {
@@ -187,13 +238,34 @@ public final class MatrixMultiply {
             splitMatrix(B21, B, halfN, halfN, 0);
             splitMatrix(B22, B, halfN, halfN, halfN);
 
-            ForkJoinTask<double[][]> P1 = new StrassenMatrixMultiplication(addMatrix(A11, A22, halfN), addMatrix(B11, B22, halfN), halfN).fork();
-            ForkJoinTask<double[][]> P2 = new StrassenMatrixMultiplication(addMatrix(A21, A22, halfN), B11, halfN).fork();
-            ForkJoinTask<double[][]> P3 = new StrassenMatrixMultiplication(A11, subtractMatrix(B12, B22, halfN), halfN).fork();
-            ForkJoinTask<double[][]> P4 = new StrassenMatrixMultiplication(A22, subtractMatrix(B21, B11, halfN), halfN).fork();
-            ForkJoinTask<double[][]> P5 = new StrassenMatrixMultiplication(addMatrix(A11, A12, halfN), B22, halfN).fork();
-            ForkJoinTask<double[][]> P6 = new StrassenMatrixMultiplication(subtractMatrix(A21, A11, halfN), addMatrix(B11, B12, halfN), halfN).fork();
-            ForkJoinTask<double[][]> P7 = new StrassenMatrixMultiplication(subtractMatrix(A12, A22, halfN), addMatrix(B21, B22, halfN), halfN).fork();
+            ForkJoinTask<double[][]> P1 = new StrassenMatrixMultiplication(
+                    addMatrix(A11, A22, halfN), 
+                    addMatrix(B11, B22, halfN), 
+                    halfN).fork();
+            ForkJoinTask<double[][]> P2 = new StrassenMatrixMultiplication(
+                    addMatrix(A21, A22, halfN),
+                    B11, 
+                    halfN).fork();
+            ForkJoinTask<double[][]> P3 = new StrassenMatrixMultiplication(
+                    A11, 
+                    subtractMatrix(B12, B22, halfN), 
+                    halfN).fork();
+            ForkJoinTask<double[][]> P4 = new StrassenMatrixMultiplication(
+                    A22, 
+                    subtractMatrix(B21, B11, halfN), 
+                    halfN).fork();
+            ForkJoinTask<double[][]> P5 = new StrassenMatrixMultiplication(
+                    addMatrix(A11, A12, halfN), 
+                    B22, 
+                    halfN).fork();
+            ForkJoinTask<double[][]> P6 = new StrassenMatrixMultiplication(
+                    subtractMatrix(A21, A11, halfN), 
+                    addMatrix(B11, B12, halfN), 
+                    halfN).fork();
+            ForkJoinTask<double[][]> P7 = new StrassenMatrixMultiplication(
+                    subtractMatrix(A12, A22, halfN), 
+                    addMatrix(B21, B22, halfN), 
+                    halfN).fork();
             
             double[][] C11 = addMatrix(subtractMatrix(addMatrix(P1.join(), P4.join(), halfN), P5.join(), halfN), P7.join(), halfN);
             double[][] C12 = addMatrix(P3.join(), P5.join(), halfN);
@@ -209,20 +281,69 @@ public final class MatrixMultiply {
         }
     }
 
+    public static void printMatrix (double[][] M) {
+        for (int i = 0; i < M.length; i++) {
+            for (int j = 0; j < M.length; j++) {
+                System.out.printf("%d ", M[i][j]);
+            }
+
+            System.out.println();
+        }
+    }
+
     /**
      * Realiza una multiplicación de matrices usando el algoritmo de Strassen (AB = C) de forma paralela.
+     * Si el orden de la matriz no es una potencia de dos, 
+     * se le agregara el padding necesario para que el orden sea una potencia de dos
      *
      * @param A Una matriz de entrada con orden N
      * @param B Una matriz de entrada con orden N
      * @param N orden de las matrices
+     * @return Producto entre A y B
      */
     public static double[][] parStrassenMatrixMultiply(
             final double[][] A,
             final double[][] B,
             final int N)
     {
-        ForkJoinTask<double[][]> C = new StrassenMatrixMultiplication(A, B, N).fork();
+        double[][] C;
+        int paddedOrder = 1;
 
-        return C.join();
+        while (paddedOrder < N) {
+            paddedOrder *= 2;
+        }
+
+        if (paddedOrder > N) {
+            double[][] paddedA = new double[paddedOrder][paddedOrder];
+            double[][] paddedB = new double[paddedOrder][paddedOrder];
+            int i,j;
+
+            for (i = 0; i < paddedOrder; i++) {
+                for (j = 0; j < paddedOrder; j++) {
+                    if (i < N && j < N) {
+                        paddedA[i][j] = A[i][j];
+                        paddedB[i][j] = B[i][j];
+                    } else {
+                        paddedA[i][j] = 0;
+                        paddedB[i][j] = 0;
+                    }
+                }
+            }
+
+
+            double[][] paddedC = new StrassenMatrixMultiplication(paddedA, paddedB, paddedOrder).invoke();
+            C = new double[N][N];
+
+            for (i = 0; i < N; i++) {
+                for (j = 0; j < N; j++) {
+                    C[i][j] = paddedC[i][j];
+                }
+            }
+
+            return C;
+        }
+
+        C = new StrassenMatrixMultiplication(A, B, N).invoke();
+        return C;
     }
 }
